@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Админка — Пицца у Дона</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<style>
+  :root{ --red:#C0392B; --red-d:#962D22; --ink:#2A211B; --soft:#6E6259; --bg:#FAF5EE; --card:#fff; --line:#E7DDD0; --ok:#2E7D32; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); line-height:1.45; }
+  header{ background:var(--ink); color:#fff; padding:14px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1{ font-size:18px; margin:0; flex:1; }
+  header a{ color:#F3D9B1; font-size:14px; }
+  main{ max-width:1000px; margin:0 auto; padding:20px 16px 60px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:20px; }
+  h2{ margin:0 0 14px; font-size:20px; }
+  label{ display:block; font-size:13px; font-weight:600; margin:12px 0 4px; color:var(--soft); }
+  input,select,textarea{ width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; }
+  textarea{ min-height:80px; resize:vertical; }
+  input:focus,select:focus,textarea:focus{ outline:2px solid #E8A598; border-color:var(--red); }
+  .btn{ display:inline-block; padding:10px 18px; border:0; border-radius:8px; font:inherit; font-weight:700; cursor:pointer; background:var(--red); color:#fff; }
+  .btn:hover{ background:var(--red-d); }
+  .btn:disabled{ opacity:.6; cursor:wait; }
+  .btn.ghost{ background:#EFE6DA; color:var(--ink); }
+  .btn.ghost:hover{ background:#E4D8C8; }
+  .btn.danger{ background:#fff; color:var(--red); border:1px solid var(--red); }
+  .btn.danger:hover{ background:#FBEAE7; }
+  .btn.sm{ padding:6px 12px; font-size:14px; }
+  .row{ display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+  .row3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:0 16px; }
+  @media(max-width:640px){ .row,.row3{ grid-template-columns:1fr; } }
+  .tabs{ display:flex; gap:8px; margin-bottom:16px; }
+  .tab{ padding:9px 18px; border-radius:999px; border:1px solid var(--line); background:#fff; cursor:pointer; font:inherit; font-weight:700; }
+  .tab.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .toolbar{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .list-item{ display:flex; gap:14px; align-items:center; padding:12px 0; border-top:1px solid var(--line); }
+  .list-item:first-child{ border-top:0; }
+  .thumb{ width:52px; height:52px; border-radius:10px; background:#F3EBDF; display:flex; align-items:center; justify-content:center; font-size:26px; overflow:hidden; flex:none; }
+  .thumb img{ width:100%; height:100%; object-fit:cover; }
+  .grow{ flex:1; min-width:0; }
+  .grow b{ display:block; }
+  .meta{ font-size:13px; color:var(--soft); }
+  .pill{ display:inline-block; font-size:12px; font-weight:700; padding:2px 8px; border-radius:999px; background:#E3F1E4; color:var(--ok); }
+  .pill.off{ background:#F3E1DE; color:var(--red); }
+  .actions{ display:flex; gap:8px; flex:none; }
+  @media(max-width:560px){ .list-item{ flex-wrap:wrap; } .actions{ width:100%; } }
+  .msg{ padding:12px 14px; border-radius:8px; margin-bottom:16px; font-size:14px; }
+  .msg.err{ background:#FBEAE7; color:#8E2418; border:1px solid #F0C3BC; }
+  .msg.ok{ background:#E6F3E7; color:#1E5B22; border:1px solid #BFDFC2; }
+  .hidden{ display:none !important; }
+  .login{ max-width:380px; margin:60px auto; }
+  .hint{ font-size:12px; color:var(--soft); margin-top:4px; }
+  .empty{ color:var(--soft); padding:16px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍕 Пицца у Дона — админка</h1>
+  <a href="index.html" target="_blank" rel="noopener">Открыть сайт ↗</a>
+  <span id="whoami" class="meta" style="color:#D9C8B3"></span>
+  <button class="btn ghost sm hidden" id="logoutBtn" type="button">Выйти</button>
+</header>
+
+<main>
+  <div id="globalMsg"></div>
+
+  <!-- Вход -->
+  <section id="loginView" class="card login hidden">
+    <h2>Вход</h2>
+    <form id="loginForm">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password">Пароль</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <div style="margin-top:18px"><button class="btn" type="submit" id="loginBtn" style="width:100%">Войти</button></div>
+    </form>
+  </section>
+
+  <!-- Панель -->
+  <section id="appView" class="hidden">
+    <div class="tabs">
+      <button class="tab active" type="button" data-tab="products">Товары</button>
+      <button class="tab" type="button" data-tab="categories">Категории</button>
+    </div>
+
+    <!-- Товары -->
+    <div id="tabProducts">
+      <div class="card hidden" id="productFormCard">
+        <h2 id="productFormTitle">Новый товар</h2>
+        <form id="productForm">
+          <input type="hidden" id="pId">
+          <label for="pName">Название *</label>
+          <input id="pName" required maxlength="120">
+          <label for="pDesc">Описание</label>
+          <textarea id="pDesc"></textarea>
+          <div class="row">
+            <div>
+              <label for="pPrice">Цена, ₽ *</label>
+              <input id="pPrice" type="number" min="0" step="1" required>
+            </div>
+            <div>
+              <label for="pCat">Категория *</label>
+              <select id="pCat" required></select>
+            </div>
+          </div>
+          <label for="pImg">Ссылка на картинку (URL)</label>
+          <input id="pImg" type="url" placeholder="https://…/photo.jpg">
+          <div class="hint">Если пусто — на сайте будет эмодзи (или нарисованная пицца у старых позиций).</div>
+          <div class="row3">
+            <div>
+              <label for="pAvail">В наличии</label>
+              <select id="pAvail"><option value="true">Да</option><option value="false">Нет</option></select>
+            </div>
+            <div>
+              <label for="pBadge">Плашка (необяз.)</label>
+              <input id="pBadge" maxlength="30" placeholder="Хит, Новинка…">
+            </div>
+            <div>
+              <label for="pEmoji">Эмодзи (необяз.)</label>
+              <input id="pEmoji" maxlength="12" placeholder="🍕">
+            </div>
+          </div>
+          <label for="pSort">Порядок в категории (меньше — выше)</label>
+          <input id="pSort" type="number" step="1" value="100">
+          <div style="margin-top:18px; display:flex; gap:10px">
+            <button class="btn" type="submit" id="pSave">Сохранить</button>
+            <button class="btn ghost" type="button" id="pCancel">Отмена</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <h2 style="margin:0">Товары <span class="meta" id="pCount"></span></h2>
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            <select id="pFilter" style="width:auto"></select>
+            <button class="btn" type="button" id="pAdd">+ Добавить товар</button>
+          </div>
+        </div>
+        <div id="productList"></div>
+      </div>
+    </div>
+
+    <!-- Категории -->
+    <div id="tabCategories" class="hidden">
+      <div class="card">
+        <h2>Новая категория</h2>
+        <form id="catForm">
+          <div class="row">
+            <div>
+              <label for="cName">Название *</label>
+              <input id="cName" required maxlength="60">
+            </div>
+            <div>
+              <label for="cSlug">Код (латиницей, авто)</label>
+              <input id="cSlug" maxlength="60" placeholder="создастся из названия">
+            </div>
+          </div>
+          <label for="cDesc">Описание (показывается под заголовком на сайте)</label>
+          <input id="cDesc">
+          <div style="margin-top:16px"><button class="btn" type="submit">Добавить категорию</button></div>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Категории</h2>
+        <div id="catList"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  let sb = null;
+  let categories = [];
+  let products = [];
+
+  function msg(text, kind){
+    const box = $('globalMsg');
+    box.innerHTML = text ? `<div class="msg ${kind || 'err'}">${esc(text)}</div>` : '';
+    if (text) window.scrollTo({ top:0, behavior:'smooth' });
+    if (text && kind === 'ok') setTimeout(() => { if (box.textContent === text) box.innerHTML = ''; }, 4000);
+  }
+  const fail = (what, error) => { console.error(what, error); msg(what + ': ' + (error && error.message ? error.message : error)); };
+
+  /* ---------- старт ---------- */
+  if (!window.supabase || !window.SUPABASE_URL || /ВАШ/.test(window.SUPABASE_URL) || /ВАШ/.test(window.SUPABASE_ANON_KEY || '')){
+    msg('Supabase не настроен: впишите Project URL и anon key в файл supabase-config.js.');
+    return;
+  }
+  sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+  sb.auth.onAuthStateChange((_event, session) => showFor(session));
+  sb.auth.getSession().then(({ data }) => showFor(data.session));
+
+  let loadedFor = null;
+  function showFor(session){
+    const logged = !!session;
+    $('loginView').classList.toggle('hidden', logged);
+    $('appView').classList.toggle('hidden', !logged);
+    $('logoutBtn').classList.toggle('hidden', !logged);
+    $('whoami').textContent = logged ? session.user.email : '';
+    if (logged && loadedFor !== session.user.id){
+      loadedFor = session.user.id;
+      loadAll();
+    }
+    if (!logged) loadedFor = null;
+  }
+
+  /* ---------- вход / выход ---------- */
+  $('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = $('loginBtn'); btn.disabled = true; msg('');
+    const { error } = await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('password').value });
+    btn.disabled = false;
+    if (error) msg(error.message === 'Invalid login credentials' ? 'Неверный email или пароль.' : 'Не удалось войти: ' + error.message);
+    else $('password').value = '';
+  });
+  $('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); msg(''); });
+
+  /* ---------- вкладки ---------- */
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+    $('tabProducts').classList.toggle('hidden', t.dataset.tab !== 'products');
+    $('tabCategories').classList.toggle('hidden', t.dataset.tab !== 'categories');
+    msg('');
+  }));
+
+  /* ---------- загрузка данных ---------- */
+  async function loadAll(){
+    const [c, p] = await Promise.all([
+      sb.from('categories').select('*').order('sort_order').order('id'),
+      sb.from('products').select('*').order('sort_order').order('id')
+    ]);
+    if (c.error) return fail('Не удалось загрузить категории', c.error);
+    if (p.error) return fail('Не удалось загрузить товары', p.error);
+    categories = c.data; products = p.data;
+    renderCategories(); renderProducts();
+  }
+
+  const catName = id => (categories.find(c => c.id === id) || {}).name || '— без категории —';
+
+  /* ---------- товары: список ---------- */
+  function fillCategorySelects(){
+    const cur = $('pCat').value, curF = $('pFilter').value;
+    $('pCat').innerHTML = categories.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    $('pFilter').innerHTML = '<option value="">Все категории</option>' + categories.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    if (cur) $('pCat').value = cur;
+    if (curF) $('pFilter').value = curF;
+  }
+
+  function renderProducts(){
+    const f = $('pFilter').value;
+    const list = products.filter(p => !f || String(p.category_id) === f);
+    $('pCount').textContent = '(' + list.length + ')';
+    $('productList').innerHTML = list.length ? list.map(p => `
+      <div class="list-item">
+        <div class="thumb">${p.image_url ? `<img src="${esc(p.image_url)}" alt="" loading="lazy">` : esc(p.emoji || '🍽️')}</div>
+        <div class="grow">
+          <b>${esc(p.name)}</b>
+          <span class="meta">${esc(catName(p.category_id))} · ${Number(p.price)} ₽</span>
+        </div>
+        <span class="pill ${p.is_available ? '' : 'off'}">${p.is_available ? 'В наличии' : 'Нет в наличии'}</span>
+        <div class="actions">
+          <button class="btn ghost sm" type="button" data-edit="${p.id}">Изменить</button>
+          <button class="btn danger sm" type="button" data-del="${p.id}">Удалить</button>
+        </div>
+      </div>`).join('') : '<div class="empty">Здесь пока ничего нет.</div>';
+  }
+  $('pFilter').addEventListener('change', renderProducts);
+
+  $('productList').addEventListener('click', async e => {
+    const ed = e.target.closest('[data-edit]'), del = e.target.closest('[data-del]');
+    if (ed) openProductForm(products.find(p => String(p.id) === ed.dataset.edit));
+    if (del){
+      const p = products.find(x => String(x.id) === del.dataset.del);
+      if (!p || !confirm(`Удалить «${p.name}»? Это нельзя отменить.`)) return;
+      del.disabled = true;
+      const { error } = await sb.from('products').delete().eq('id', p.id);
+      if (error) { del.disabled = false; return fail('Не удалось удалить товар', error); }
+      products = products.filter(x => x.id !== p.id);
+      renderProducts(); msg('Товар удалён.', 'ok');
+    }
+  });
+
+  /* ---------- товары: форма ---------- */
+  function openProductForm(p){
+    if (!categories.length) return msg('Сначала создайте хотя бы одну категорию (вкладка «Категории»).');
+    msg('');
+    fillCategorySelects();
+    $('productFormTitle').textContent = p ? 'Редактирование товара' : 'Новый товар';
+    $('pId').value = p ? p.id : '';
+    $('pName').value = p ? p.name : '';
+    $('pDesc').value = p ? (p.description || '') : '';
+    $('pPrice').value = p ? Number(p.price) : '';
+    $('pCat').value = p && p.category_id ? p.category_id : ($('pFilter').value || categories[0].id);
+    $('pImg').value = p ? (p.image_url || '') : '';
+    $('pAvail').value = p ? String(!!p.is_available) : 'true';
+    $('pBadge').value = p ? (p.badge || '') : '';
+    $('pEmoji').value = p ? (p.emoji || '') : '';
+    $('pSort').value = p ? p.sort_order : 100;
+    $('productFormCard').classList.remove('hidden');
+    $('productFormCard').scrollIntoView({ behavior:'smooth', block:'start' });
+    $('pName').focus();
+  }
+  $('pAdd').addEventListener('click', () => openProductForm(null));
+  $('pCancel').addEventListener('click', () => $('productFormCard').classList.add('hidden'));
+
+  $('productForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id = $('pId').value;
+    const row = {
+      name: $('pName').value.trim(),
+      description: $('pDesc').value.trim() || null,
+      price: Number($('pPrice').value),
+      category_id: Number($('pCat').value),
+      image_url: $('pImg').value.trim() || null,
+      is_available: $('pAvail').value === 'true',
+      badge: $('pBadge').value.trim() || null,
+      emoji: $('pEmoji').value.trim() || null,
+      sort_order: parseInt($('pSort').value, 10) || 100
+    };
+    if (!row.name) return msg('Введите название.');
+    if (!(row.price >= 0)) return msg('Введите корректную цену.');
+    const btn = $('pSave'); btn.disabled = true;
+    // при изменении поле extra (состав, опции, оформление) не трогаем
+    const q = id ? sb.from('products').update(row).eq('id', id) : sb.from('products').insert(row);
+    const { error } = await q;
+    btn.disabled = false;
+    if (error) return fail('Не удалось сохранить товар', error);
+    $('productFormCard').classList.add('hidden');
+    await loadAll();
+    msg(id ? 'Товар обновлён.' : 'Товар добавлен.', 'ok');
+  });
+
+  /* ---------- категории ---------- */
+  function translit(s){
+    const m = {а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'c',ч:'ch',ш:'sh',щ:'sch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya'};
+    return s.toLowerCase().split('').map(c => m[c] !== undefined ? m[c] : c).join('')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+
+  function renderCategories(){
+    fillCategorySelects();
+    $('catList').innerHTML = categories.length ? categories.map(c => {
+      const n = products.filter(p => p.category_id === c.id).length;
+      return `<div class="list-item">
+        <div class="grow"><b>${esc(c.name)}</b><span class="meta">код: ${esc(c.slug)} · товаров: ${n}${c.description ? ' · ' + esc(c.description) : ''}</span></div>
+        <div class="actions"><button class="btn danger sm" type="button" data-cdel="${c.id}">Удалить</button></div>
+      </div>`;
+    }).join('') : '<div class="empty">Категорий пока нет.</div>';
+  }
+
+  $('catForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const name = $('cName').value.trim();
+    const slug = ($('cSlug').value.trim() ? translit($('cSlug').value) : translit(name)) || ('cat-' + Date.now());
+    const maxOrder = categories.reduce((m, c) => Math.max(m, c.sort_order || 0), 0);
+    const { error } = await sb.from('categories').insert({
+      name, slug, description: $('cDesc').value.trim() || null, sort_order: maxOrder + 10
+    });
+    if (error) return fail(error.code === '23505' ? 'Категория с таким кодом уже есть' : 'Не удалось добавить категорию', error);
+    $('catForm').reset();
+    await loadAll();
+    msg('Категория добавлена.', 'ok');
+  });
+
+  $('catList').addEventListener('click', async e => {
+    const b = e.target.closest('[data-cdel]');
+    if (!b) return;
+    const c = categories.find(x => String(x.id) === b.dataset.cdel);
+    const n = products.filter(p => p.category_id === c.id).length;
+    const warn = n ? `\n\nВНИМАНИЕ: вместе с ней будут удалены все товары категории (${n} шт.).` : '';
+    if (!confirm(`Удалить категорию «${c.name}»?${warn}`)) return;
+    b.disabled = true;
+    const { error } = await sb.from('categories').delete().eq('id', c.id);
+    if (error) { b.disabled = false; return fail('Не удалось удалить категорию', error); }
+    await loadAll();
+    msg('Категория удалена.', 'ok');
+  });
+})();
+</script>
+</body>
+</html>

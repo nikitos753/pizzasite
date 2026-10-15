@@ -632,6 +632,11 @@
   .menu-categories{ min-width:0; }
   .menu-category{ scroll-margin-top:calc(var(--hdr-h) + var(--cat-nav-h) + 16px); }
   .menu-category + .menu-category{ margin-top:56px; }
+  .menu-cat-nav:empty{ display:none; }
+  .menu-status{ padding:48px 16px; text-align:center; color:var(--charcoal-soft); font-size:16px; }
+  .menu-status button{ margin-top:14px; }
+  .pizza-card.is-unavailable{ opacity:.55; cursor:default; }
+  .pizza-card.is-unavailable .btn{ pointer-events:none; background:#C9C2BA; box-shadow:none; }
   .cat-head{ margin-bottom:24px; }
   .cat-head h3{ font-size:clamp(24px,2.6vw,32px); }
   .cat-head p{ color:var(--charcoal-soft); margin:8px 0 0; max-width:60ch; }
@@ -1839,6 +1844,8 @@
     .cart-drawer{ width:100%; max-width:100%; }
   }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 </head>
 <body>
 
@@ -1955,55 +1962,11 @@
       </div>
     </div>
 
-    <nav class="menu-cat-nav" id="menuCatNav" aria-label="Категории меню">
-      <button type="button" class="cat-btn active" data-cat="cat-pizzas">Пиццы</button>
-      <button type="button" class="cat-btn" data-cat="cat-combo">Комбо</button>
-      <button type="button" class="cat-btn" data-cat="cat-snacks">Закуски</button>
-      <button type="button" class="cat-btn" data-cat="cat-drinks">Напитки</button>
-      <button type="button" class="cat-btn" data-cat="cat-sauces">Соусы</button>
-    </nav>
+    <nav class="menu-cat-nav" id="menuCatNav" aria-label="Категории меню"></nav>
 
     <div class="menu-layout">
-      <div class="menu-categories">
-        <section class="menu-category" id="cat-pizzas" aria-labelledby="cat-pizzas-title">
-          <div class="cat-head">
-            <h3 id="cat-pizzas-title">Пиццы</h3>
-            <p>Семь пицц, за которые дон готов поручиться лично. Выпекаем сразу после заказа.</p>
-          </div>
-          <div class="menu-grid" id="menuGrid"></div>
-        </section>
-
-        <section class="menu-category" id="cat-combo" aria-labelledby="cat-combo-title">
-          <div class="cat-head">
-            <h3 id="cat-combo-title">Комбо</h3>
-            <p>Готовые наборы из нескольких блюд — выгоднее, чем заказывать по отдельности.</p>
-          </div>
-          <div class="menu-grid" id="comboGrid"></div>
-        </section>
-
-        <section class="menu-category" id="cat-snacks" aria-labelledby="cat-snacks-title">
-          <div class="cat-head">
-            <h3 id="cat-snacks-title">Закуски</h3>
-            <p>Горячее и хрустящее к пицце: берите на компанию или просто для себя.</p>
-          </div>
-          <div class="menu-grid" id="snacksGrid"></div>
-        </section>
-
-        <section class="menu-category" id="cat-drinks" aria-labelledby="cat-drinks-title">
-          <div class="cat-head">
-            <h3 id="cat-drinks-title">Напитки</h3>
-            <p>Прохладные и горячие напитки, чтобы запить горячую пиццу.</p>
-          </div>
-          <div class="menu-grid" id="drinksGrid"></div>
-        </section>
-
-        <section class="menu-category" id="cat-sauces" aria-labelledby="cat-sauces-title">
-          <div class="cat-head">
-            <h3 id="cat-sauces-title">Соусы</h3>
-            <p>Фирменные соусы для корочки, закусок и всего, что захочется макнуть.</p>
-          </div>
-          <div class="menu-grid" id="saucesGrid"></div>
-        </section>
+      <div class="menu-categories" id="menuCategories">
+        <div class="menu-status" id="menuStatus">Загружаем меню…</div>
       </div>
 
       <aside class="app-widget" id="appWidget">
@@ -2576,210 +2539,13 @@
      Данные меню + детерминированная генерация
      "аппетитной" иллюстрации пиццы через CSS/SVG
   --------------------------------------------- */
-  const PIZZAS = [
-    {
-      id:'margherita', name:'Маргарита', price:450,
-      desc:'Томатный соус, моцарелла, свежий базилик, оливковое масло',
-      compose:{dough:'Тонкое тесто на медленной опаре (72 часа)', sauce:'Томатный соус из вяленых томатов', filling:'Моцарелла, свежий базилик, оливковое масло extra virgin'},
-      seed:11,
-      layers:[
-        {color:'#FFF6DE', count:9, minSize:16, maxSize:24, minR:8, maxR:34},
-        {color:'#C0392B', count:5, minSize:10, maxSize:14, minR:12, maxR:32},
-        {color:'#4F7942', count:6, minSize:8, maxSize:11, minR:14, maxR:36, shape:'leaf'}
-      ]
-    },
-    {
-      id:'pepperoni', name:'Пепперони', price:520,
-      desc:'Острая пепперони, томатный соус, много моцареллы',
-      compose:{dough:'Тонкое тесто на медленной опаре (72 часа)', sauce:'Острый томатный соус', filling:'Острая пепперони, двойная моцарелла'},
-      seed:27,
-      layers:[
-        {color:'#FFF6DE', count:8, minSize:14, maxSize:20, minR:6, maxR:32},
-        {color:'#A6321F', count:12, minSize:13, maxSize:17, minR:6, maxR:38, border:'#7A2116'}
-      ]
-    },
-    {
-      id:'fourcheese', name:'Четыре сыра', price:590,
-      desc:'Моцарелла, дор блю, пармезан и чеддер на сливочной основе',
-      compose:{dough:'Тонкое тесто на медленной опаре (72 часа)', sauce:'Сливочный соус бешамель', filling:'Моцарелла, дор блю, пармезан, чеддер'},
-      seed:42,
-      layers:[
-        {color:'#FFF6DE', count:10, minSize:16, maxSize:22, minR:6, maxR:34},
-        {color:'#E8A33D', count:7, minSize:9, maxSize:13, minR:8, maxR:36},
-        {color:'#7C8FA6', count:8, minSize:6, maxSize:9, minR:8, maxR:34}
-      ]
-    },
-    {
-      id:'hawaiian', name:'Гавайская', price:540,
-      desc:'Ветчина, ананас, моцарелла, лёгкая томатная нота',
-      compose:{dough:'Тонкое тесто на медленной опаре (72 часа)', sauce:'Лёгкий томатный соус', filling:'Ветчина, ананас, моцарелла'},
-      seed:58,
-      layers:[
-        {color:'#FFF6DE', count:8, minSize:14, maxSize:20, minR:6, maxR:32},
-        {color:'#E8A9A0', count:7, minSize:12, maxSize:16, minR:8, maxR:34},
-        {color:'#F2C230', count:6, minSize:9, maxSize:12, minR:10, maxR:34, shape:'square'}
-      ]
-    },
-    {
-      id:'don', name:'Фирменная «У Дона»', price:650,
-      desc:'Пепперони, бекон, халапеньо и три вида сыра — для смелых',
-      compose:{dough:'Тонкое тесто на медленной опаре (72 часа)', sauce:'Фирменный острый соус', filling:'Пепперони, бекон, халапеньо, три вида сыра'},
-      seed:73,
-      layers:[
-        {color:'#FFF6DE', count:8, minSize:14, maxSize:19, minR:6, maxR:32},
-        {color:'#A6321F', count:7, minSize:12, maxSize:15, minR:8, maxR:36},
-        {color:'#C1666B', count:6, minSize:10, maxSize:13, minR:8, maxR:34},
-        {color:'#7CB342', count:6, minSize:6, maxSize:9, minR:10, maxR:36, shape:'leaf'}
-      ]
-    },
-    {
-      id:'bbq', name:'Барбекю', price:570,
-      desc:'Курица, соус барбекю, красный лук, моцарелла',
-      compose:{dough:'Тонкое тесто на медленной опаре (72 часа)', sauce:'Соус барбекю', filling:'Курица гриль, красный лук, моцарелла'},
-      seed:91,
-      layers:[
-        {color:'#FFF6DE', count:9, minSize:15, maxSize:20, minR:6, maxR:33},
-        {color:'#F0D9B5', count:7, minSize:12, maxSize:16, minR:8, maxR:34},
-        {color:'#6B3A1F', count:6, minSize:5, maxSize:8, minR:10, maxR:36}
-      ]
-    },
-    {
-      id:'pear-gorgonzola', name:'Груша и горгонзола', price:640,
-      desc:'Груша, горгонзола, мёд, грецкий орех, руккола',
-      badge:'Новинка',
-      compose:{dough:'Тонкое тесто на медленной опаре (72 часа)', sauce:'Медовая заливка вместо томатного соуса', filling:'Груша, горгонзола, грецкий орех, руккола'},
-      seed:64,
-      layers:[
-        {color:'#FFF6DE', count:9, minSize:15, maxSize:21, minR:6, maxR:33},
-        {color:'#B9C4D6', count:7, minSize:8, maxSize:11, minR:8, maxR:34},
-        {color:'#E4D9A0', count:6, minSize:11, maxSize:15, minR:10, maxR:35},
-        {color:'#8B5E3C', count:5, minSize:5, maxSize:7, minR:10, maxR:32},
-        {color:'#4F7942', count:5, minSize:7, maxSize:10, minR:14, maxR:36, shape:'leaf'}
-      ]
-    }
-  ];
-
-  // Остальные категории меню. Вместо фото — эмодзи; чтобы поставить настоящее
-  // фото, добавьте поле img:'путь/к/файлу.jpg' — оно заменит эмодзи.
-  /* Описание опций товара (одно место для всех категорий).
-     radio(id, заголовок, варианты, {def, style, bare}) — выбор одного:
-       style 'buttons' — кнопки, 'select' — выпадающий список, иначе список радиокнопок
-     multi(id, заголовок, варианты, {def:[…], max}) — чекбоксы
-     ch(id, подпись, надбавка к цене) — вариант выбора
-     bare:true — в корзине показывать только значение, без заголовка группы */
+  /* Данные меню приходят из Supabase (таблицы categories и products).
+     Управляются через admin.html. Здесь — только помощники для описания опций. */
   const ch = (id, label, delta = 0) => ({ id, label, delta });
   const radio = (id, title, choices, o = {}) => ({ id, title, type:'radio', choices, ...o });
   const multi = (id, title, choices, o = {}) => ({ id, title, type:'checkbox', choices, ...o });
 
-  const pizzaChoices = ids => PIZZAS.filter(p => !ids || ids.includes(p.id))
-    .map(p => ch(p.id, p.name, p.price > 600 ? 60 : 0));
-  const cupSize = () => radio('size', 'Размер стаканчика', [
-    ch('s', 'Маленький · 0,3 л', -30), ch('m', 'Средний · 0,5 л', 0), ch('l', 'Большой · 0,7 л', 40)
-  ], { def:'m', style:'buttons', bare:true });
-  const coffeeSize = () => radio('size', 'Размер стаканчика', [
-    ch('s', 'Маленький · 200 мл', -30), ch('m', 'Средний · 250 мл', 0), ch('l', 'Большой · 350 мл', 40)
-  ], { def:'m', style:'buttons', bare:true });
-  const comboDrinks = (title, list) => radio('drink', title, list.map(n => ch(n, n)), { style:'list', short:'Напитки' });
-  const spiceGroup = () => radio('spice', 'Острота', [ch('mild', 'Неострые'), ch('hot', 'Острые')], { style:'buttons' });
-  const sauceChoices = () => [
-    ch('garlic', 'Чесночный', 40), ch('cheese', 'Сырный', 50), ch('bbq', 'Барбекю', 40),
-    ch('ketchup', 'Кетчуп', 30), ch('spicy', 'Острый', 40)
-  ];
-
-  // Комбо, закуски, напитки, соусы. Вместо фото — эмодзи; чтобы поставить
-  // настоящее фото, добавьте поле img:'путь/к/файлу.jpg'.
-  // options — доступные параметры выбора; includes — «что входит» (необязательно).
-  // Нет options — в окне товара только описание и кнопка «Добавить в корзину».
-  const EXTRA_CATEGORIES = [
-    { gridId:'comboGrid', items:[
-      { id:'combo-two', name:'Комбо для двоих', price:1190, emoji:'🍕🍟', badge:'Выгодно',
-        desc:'Две пиццы, картофель фри и два напитка — всё для ужина вдвоём.',
-        includes:['2 пиццы 20 см на выбор','Картофель фри','2 напитка по 0,5 л'],
-        options:[
-          radio('pizza1', 'Первая пицца', pizzaChoices(), { def:'margherita', style:'select' }),
-          radio('pizza2', 'Вторая пицца', pizzaChoices(), { def:'pepperoni', style:'select' }),
-          comboDrinks('Напитки (2 шт.)', ['Кола', 'Лимонад лимон-лайм', 'Сок апельсиновый', 'Вода']),
-          multi('sauces', 'Добавить соусы', sauceChoices().slice(0, 3), { bare:true })
-        ] },
-      { id:'combo-company', name:'Комбо для компании', price:2490, emoji:'🍕🍗', badge:'Хит',
-        desc:'Большой набор для компании: четыре пиццы, закуски, соусы и напитки.',
-        includes:['4 пиццы 20 см: Маргарита, Пепперони, Четыре сыра, Барбекю','8 куриных крылышек','Наггетсы','3 соуса на выбор','2 напитка по 1 л'],
-        options:[
-          spiceGroup(),
-          comboDrinks('Напитки (2 × 1 л)', ['Кола', 'Лимонад лимон-лайм', 'Сок апельсиновый']),
-          multi('sauces', 'Выберите 3 соуса', sauceChoices().map(c => ({ ...c, delta:0 })), { def:['garlic', 'cheese', 'bbq'], max:3, short:'Соусы' })
-        ] },
-      { id:'combo-pizza-drink', name:'Пицца + напиток', price:490, emoji:'🍕🥤',
-        desc:'Любимая пицца и напиток к ней — быстрый обед по выгодной цене.',
-        includes:['Пицца 20 см на выбор','Напиток 0,5 л'],
-        options:[
-          radio('pizza', 'Пицца', [ch('margherita', 'Маргарита'), ch('pepperoni', 'Пепперони', 30)], { style:'buttons' }),
-          comboDrinks('Напиток', ['Кола', 'Лимонад лимон-лайм', 'Сок апельсиновый', 'Вода'])
-        ] },
-      { id:'combo-snack-set', name:'Закусочный сет', price:690, emoji:'🍟🍗',
-        desc:'Три горячие закуски и два соуса — отлично под фильм или футбол.',
-        includes:['Чесночный хлеб','Куриные крылышки','Картофель фри'],
-        options:[
-          spiceGroup(),
-          multi('sauces', 'Выберите 2 соуса', sauceChoices().map(c => ({ ...c, delta:0 })), { def:['garlic', 'cheese'], max:2, short:'Соусы' })
-        ] }
-    ]},
-    { gridId:'snacksGrid', items:[
-      { id:'garlic-bread', name:'Чесночный хлеб', price:220, emoji:'🥖',
-        desc:'Хрустящая багетная лепёшка с чесночным маслом и зеленью.',
-        options:[ multi('add', 'Добавить', [ch('cheese', 'Сыр сверху', 50), ch('bacon', 'Бекон', 70)], { bare:true }) ] },
-      { id:'wings', name:'Куриные крылышки', price:420, emoji:'🍗',
-        desc:'Крылышки в хрустящей панировке, подаются горячими.',
-        options:[
-          radio('qty', 'Порция', [ch('8', '8 штук'), ch('12', '12 штук', 160), ch('16', '16 штук', 300)], { style:'buttons', bare:true }),
-          spiceGroup(),
-          radio('sauce', 'Соус', [ch('none', 'Без соуса'), ch('cheese', 'Сырный', 50), ch('bbq', 'Барбекю', 40)], { style:'list' })
-        ] },
-      { id:'fries', name:'Картофель фри', price:190, emoji:'🍟',
-        desc:'Золотистый хрустящий картофель с морской солью.',
-        options:[
-          radio('size', 'Порция', [ch('std', 'Стандартная'), ch('big', 'Большая', 60)], { style:'buttons', bare:true }),
-          radio('sauce', 'Соус', [ch('none', 'Без соуса'), ch('ketchup', 'Кетчуп', 30), ch('cheese', 'Сырный', 50), ch('garlic', 'Чесночный', 40)], { style:'list' })
-        ] },
-      { id:'nuggets', name:'Наггетсы', price:310, emoji:'🍤',
-        desc:'Нежные куриные наггетсы в хрустящей корочке.',
-        options:[
-          radio('qty', 'Порция', [ch('9', '9 штук'), ch('15', '15 штук', 190)], { style:'buttons', bare:true }),
-          radio('sauce', 'Соус', [ch('none', 'Без соуса'), ch('bbq', 'Барбекю', 40), ch('cheese', 'Сырный', 50)], { style:'list' })
-        ] }
-    ]},
-    { gridId:'drinksGrid', items:[
-      { id:'cola', name:'Кола', price:120, emoji:'🥤', desc:'Классическая кола, охлаждённая, в стаканчике.',
-        options:[ cupSize(), multi('add', 'Добавить', [ch('ice', 'Лёд'), ch('lemon', 'Долька лимона', 10)], { bare:true }) ] },
-      { id:'lemonade', name:'Лимонад лимон-лайм', price:120, emoji:'🍋', desc:'Освежающий газированный лимонад.',
-        options:[ radio('vol', 'Объём', [ch('05', '0,5 л'), ch('1', '1 л', 90)], { style:'buttons', bare:true }) ] },
-      { id:'juice-orange', name:'Сок апельсиновый', price:110, emoji:'🍊', desc:'Натуральный апельсиновый сок в бутылке, 0,3 л.' },
-      { id:'juice-apple', name:'Сок яблочный', price:110, emoji:'🍎', desc:'Осветлённый яблочный сок в бутылке, 0,3 л.' },
-      { id:'water', name:'Вода', price:80, emoji:'💧', desc:'Питьевая негазированная вода в бутылке, 0,5 л.' },
-      { id:'mors', name:'Морс клюквенный', price:130, emoji:'🫐', desc:'Домашний ягодный морс в стаканчике.',
-        options:[ cupSize() ] },
-      { id:'americano', name:'Американо', price:150, emoji:'☕', desc:'Двойной эспрессо с горячей водой.',
-        options:[ coffeeSize(), multi('add', 'Добавить', [ch('shot', 'Дополнительный шот', 50), ch('vanilla', 'Сироп ваниль', 30), ch('caramel', 'Сироп карамель', 30)], { bare:true }) ] },
-      { id:'cappuccino', name:'Капучино', price:190, emoji:'🥛', desc:'Эспрессо с нежной молочной пенкой.',
-        options:[
-          coffeeSize(),
-          radio('milk', 'Молоко', [ch('regular', 'Обычное'), ch('oat', 'Овсяное', 50), ch('almond', 'Миндальное', 60)], { style:'list' }),
-          multi('add', 'Добавить', [ch('shot', 'Дополнительный шот', 50), ch('vanilla', 'Сироп ваниль', 30), ch('caramel', 'Сироп карамель', 30)], { bare:true })
-        ] }
-    ]},
-    { gridId:'saucesGrid', items:[
-      { id:'sauce-garlic', name:'Чесночный', price:40, emoji:'🧄', desc:'Сливочный соус с чесноком и зеленью.',
-        options:[ radio('vol', 'Объём', [ch('40', 'Порция · 40 г'), ch('100', 'Большой · 100 г', 70)], { style:'buttons', bare:true }) ] },
-      { id:'sauce-cheese', name:'Сырный', price:50, emoji:'🧀', desc:'Тягучий сырный соус на сливках.',
-        options:[ radio('vol', 'Объём', [ch('40', 'Порция · 40 г'), ch('100', 'Большой · 100 г', 80)], { style:'buttons', bare:true }) ] },
-      { id:'sauce-bbq', name:'Барбекю', price:40, emoji:'🍖', desc:'Дымный сладковатый соус барбекю.',
-        options:[ radio('vol', 'Объём', [ch('40', 'Порция · 40 г'), ch('100', 'Большой · 100 г', 70)], { style:'buttons', bare:true }) ] },
-      { id:'sauce-ketchup', name:'Кетчуп', price:30, emoji:'🍅', desc:'Томатный кетчуп, мягкий вкус. Порция 40 г.' },
-      { id:'sauce-spicy', name:'Острый', price:40, emoji:'🌶️', desc:'Пикантный соус с перцем чили. Порция 40 г.' }
-    ]}
-  ];
-  const EXTRA_ITEMS = EXTRA_CATEGORIES.flatMap(c => c.items);
-  const ALL_ITEMS = [...PIZZAS, ...EXTRA_ITEMS];
+  let ALL_ITEMS = [];   // доступные к заказу позиции (заполняется в loadMenu)
   const isPizza = item => !!(item && item.layers);
 
   // Размеры и доп. ингредиенты для модального окна с деталями пиццы
@@ -2803,7 +2569,6 @@
     radio('size', 'Размер', SIZES.map(sz => ch(sz.id, sz.label, sz.delta)), { style:'buttons', bare:true }),
     multi('extras', 'Дополнительные ингредиенты', EXTRAS.map(e => ch(e.id, e.label, e.price)), { bare:true })
   ];
-  PIZZAS.forEach(p => { p.options = PIZZA_OPTIONS; });
 
   function seededRandom(seed){
     let s = seed;
@@ -2840,7 +2605,7 @@
     if (isPizza(item)){ renderPizzaVisual(el, item); return; }
     el.classList.add('item-visual');
     if (item.img){
-      el.innerHTML = `<img src="${item.img}" alt="${item.name}">`;
+      el.innerHTML = `<img src="${esc(item.img)}" alt="${esc(item.name)}">`;
     } else {
       // несколько эмодзи подряд (комбо) рисуем мельче
       if ([...item.emoji.replace(/\uFE0F/g, '')].length > 1) el.classList.add('multi');
@@ -2863,44 +2628,124 @@
   /* ---------------------------------------------
      Рендер меню
   --------------------------------------------- */
-  const menuGrid = document.getElementById('menuGrid');
-  PIZZAS.forEach(pizza => {
-    const card = document.createElement('article');
-    card.className = 'pizza-card';
-    card.dataset.itemId = pizza.id;
-    card.tabIndex = 0;
-    card.innerHTML = `
-      ${pizza.badge ? `<span class="pizza-badge">${pizza.badge}</span>` : ''}
-      <div class="pizza-visual" data-visual></div>
-      <h2>${pizza.name}</h2>
-      <div class="card-actions">
-        <button type="button" class="btn btn-primary btn-block" data-open="${pizza.id}" aria-label="Выбрать пиццу «${pizza.name}», ${priceLabel(pizza)}">Выбрать · ${priceLabel(pizza)}</button>
-      </div>
-    `;
-    menuGrid.appendChild(card);
-    renderPizzaVisual(card.querySelector('[data-visual]'), pizza);
-  });
+  // Экранирование строк из базы перед вставкой в HTML
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  // Комбо, закуски, напитки, соусы — тот же вид карточки
-  EXTRA_CATEGORIES.forEach(cat => {
-    const grid = document.getElementById(cat.gridId);
-    cat.items.forEach(item => {
-      const card = document.createElement('article');
-      card.className = 'pizza-card';
-      card.dataset.itemId = item.id;
-      card.tabIndex = 0;
-      card.innerHTML = `
-        ${item.badge ? `<span class="pizza-badge">${item.badge}</span>` : ''}
-        <div class="pizza-visual" data-visual></div>
-        <h3>${item.name}</h3>
-        <div class="card-actions">
-          <button type="button" class="btn btn-primary btn-block" data-open="${item.id}" aria-label="Выбрать: ${item.name}, ${priceLabel(item)}">Выбрать · ${priceLabel(item)}</button>
+  // Строка таблицы products -> объект позиции меню, как его ждёт остальной код
+  function rowToItem(r, cat){
+    const x = r.extra || {};
+    const item = {
+      id: String(r.id),
+      name: r.name,
+      price: Number(r.price),
+      desc: r.description || '',
+      badge: r.badge || '',
+      emoji: r.emoji || (cat && cat.slug === 'pizzas' ? '🍕' : '🍽️'),
+      img: r.image_url || '',
+      compose: x.compose,
+      includes: x.includes,
+      options: x.options
+    };
+    if (x.visual && x.visual.layers && !item.img){
+      item.seed = x.visual.seed || 1;
+      item.layers = x.visual.layers;
+    }
+    // Пиццы: размер и добавки по умолчанию
+    if (!item.options && cat && cat.slug === 'pizzas') item.options = PIZZA_OPTIONS;
+    return item;
+  }
+
+  function renderMenu(categories, products){
+    const wrap = document.getElementById('menuCategories');
+    const nav = document.getElementById('menuCatNav');
+    wrap.innerHTML = '';
+    nav.innerHTML = '';
+    ALL_ITEMS = [];
+    let first = true;
+
+    categories.forEach(cat => {
+      const rows = products.filter(p => p.category_id === cat.id);
+      if (!rows.length) return;
+      const sid = 'cat-' + String(cat.slug || cat.id).replace(/[^a-zA-Z0-9_-]/g, '-');
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cat-btn' + (first ? ' active' : '');
+      btn.dataset.cat = sid;
+      btn.textContent = cat.name;
+      nav.appendChild(btn);
+      first = false;
+
+      const sec = document.createElement('section');
+      sec.className = 'menu-category';
+      sec.id = sid;
+      sec.setAttribute('aria-labelledby', sid + '-title');
+      sec.innerHTML = `
+        <div class="cat-head">
+          <h3 id="${sid}-title">${esc(cat.name)}</h3>
+          ${cat.description ? `<p>${esc(cat.description)}</p>` : ''}
         </div>
-      `;
-      grid.appendChild(card);
-      renderItemVisual(card.querySelector('[data-visual]'), item);
+        <div class="menu-grid"></div>`;
+      const grid = sec.querySelector('.menu-grid');
+
+      rows.forEach(r => {
+        const item = rowToItem(r, cat);
+        const ok = r.is_available !== false;
+        const card = document.createElement('article');
+        card.className = 'pizza-card' + (ok ? '' : ' is-unavailable');
+        if (ok){
+          card.dataset.itemId = item.id;
+          card.tabIndex = 0;
+          ALL_ITEMS.push(item);
+        }
+        const label = ok ? 'Выбрать · ' + priceLabel(item) : 'Нет в наличии';
+        card.innerHTML = `
+          ${item.badge ? `<span class="pizza-badge">${esc(item.badge)}</span>` : ''}
+          <div class="pizza-visual" data-visual></div>
+          <h3>${esc(item.name)}</h3>
+          <div class="card-actions">
+            <button type="button" class="btn btn-primary btn-block" ${ok ? '' : 'disabled'} aria-label="${esc(ok ? 'Выбрать: ' + item.name + ', ' + priceLabel(item) : item.name + ' — нет в наличии')}">${label}</button>
+          </div>`;
+        grid.appendChild(card);
+        renderItemVisual(card.querySelector('[data-visual]'), item);
+      });
+      wrap.appendChild(sec);
     });
-  });
+
+    if (!wrap.children.length){
+      wrap.innerHTML = '<div class="menu-status">Меню пока пустое. Загляните чуть позже 🍕</div>';
+    }
+  }
+
+  function showMenuError(){
+    const wrap = document.getElementById('menuCategories');
+    document.getElementById('menuCatNav').innerHTML = '';
+    wrap.innerHTML = '<div class="menu-status">Не удалось загрузить меню. Проверьте интернет и попробуйте ещё раз.<br><button type="button" class="btn btn-primary" id="menuRetry">Обновить</button></div>';
+    document.getElementById('menuRetry').addEventListener('click', () => location.reload());
+  }
+
+  let menuNavReady = false;
+  async function loadMenu(){
+    try{
+      if (!window.supabase || !window.SUPABASE_URL || /ВАШ/.test(window.SUPABASE_URL)) throw new Error('Supabase не настроен (supabase-config.js)');
+      const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+      const [c, p] = await Promise.all([
+        sb.from('categories').select('*').order('sort_order').order('id'),
+        sb.from('products').select('*').order('sort_order').order('id')
+      ]);
+      if (c.error) throw c.error;
+      if (p.error) throw p.error;
+      renderMenu(c.data || [], p.data || []);
+      // корзина восстанавливается только когда известно меню
+      cart = loadCart();
+      renderCart();
+      if (!menuNavReady){ initMenuCategoryNav(); menuNavReady = true; }
+      else window.dispatchEvent(new Event('resize'));
+    } catch(err){
+      console.error('Меню не загружено:', err);
+      showMenuError();
+    }
+  }
 
   // Карусель в hero-блоке: активный слайд по центру, соседи выглядывают по бокам
   const heroSliderBox = document.getElementById('heroSlider');
@@ -3191,7 +3036,7 @@
     return parts;
   }
 
-  let cart = loadCart();
+  let cart = [];   // наполняется в loadMenu() после загрузки меню
 
   const cartBadge = document.getElementById('cartBadge');
   const openCartBtn = document.getElementById('openCartBtn');
@@ -3306,18 +3151,19 @@
     renderCartRows(orderCartItemsEl, `<div class="cart-empty">Корзина пуста.<br>Вернитесь в меню и добавьте пиццу 🍕</div>`);
   }
 
-  document.querySelectorAll('.menu-grid').forEach(grid => grid.addEventListener('click', e => {
+  const menuRoot = document.getElementById('menuCategories');
+  menuRoot.addEventListener('click', e => {
     // Кнопка с ценой и клик по самой карточке открывают окно товара
     const card = e.target.closest('.pizza-card');
     if (card && card.dataset.itemId) openItemModal(card.dataset.itemId);
-  }));
+  });
   // Открытие окна товара с клавиатуры (Enter / пробел на сфокусированной карточке)
-  document.querySelectorAll('.menu-grid').forEach(grid => grid.addEventListener('keydown', e => {
-    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('pizza-card')){
+  menuRoot.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('pizza-card') && e.target.dataset.itemId){
       e.preventDefault();
       openItemModal(e.target.dataset.itemId);
     }
-  }));
+  });
 
   /* ---------------------------------------------
      Модальное окно товара: размер, добавки, состав и т.д.
@@ -3469,7 +3315,7 @@
   /* ---------------------------------------------
      Навигация по категориям меню: плавная прокрутка + подсветка активной
   --------------------------------------------- */
-  (function initMenuCategoryNav(){
+  function initMenuCategoryNav(){
     const nav = document.getElementById('menuCatNav');
     if (!nav) return;
     const btns = [...nav.querySelectorAll('[data-cat]')];
@@ -3503,7 +3349,7 @@
     window.addEventListener('scroll', updateActive, { passive: true });
     window.addEventListener('resize', updateActive);
     updateActive();
-  })();
+  }
 
   function handleCartClick(e){
     const plus = e.target.closest('[data-plus]');
@@ -3872,6 +3718,7 @@
   });
 
   renderCart();
+  loadMenu();
 </script>
 
 </body>
